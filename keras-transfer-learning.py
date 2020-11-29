@@ -8,7 +8,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.applications import vgg16
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img
 from tensorflow.keras.models import load_model
-
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras import Sequential, optimizers
 
@@ -69,8 +69,8 @@ def show_errors(idx2label, errors, predictions, fnames):
 # Utility function for plotting of the model results
 def visualize_results(history):
     # Plot the accuracy and loss curves
-    acc = history.history['acc']
-    val_acc = history.history['val_acc']
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
     loss = history.history['loss']
     val_loss = history.history['val_loss']
 
@@ -90,13 +90,18 @@ def visualize_results(history):
 
     plt.show()
 
-def create_model():
+def create_model(num_trainable_layers=None):
     vgg_conv = vgg16.VGG16(weights='imagenet',
                            include_top=False,
                            input_shape=(224, 224, 3))
-    # Freeze all the layers
-    for layer in vgg_conv.layers[:]:
-        layer.trainable = False
+    if num_trainable_layers is None:
+        # Freeze all the layers
+        for layer in vgg_conv.layers[:]:
+            layer.trainable = False
+    else:
+        # Freeze all the layers
+        for layer in vgg_conv.layers[:-num_trainable_layers]:
+            layer.trainable = False
 
     # Create the model
     model = Sequential()
@@ -114,6 +119,24 @@ def create_model():
 
 if __name__ == '__main__':
 
+    """
+    vgg_transfer_model.h5
+    Epoch 00020: val_accuracy did not improve from 0.93333
+    30/30 [==============================] - 70s 2s/step - loss: 0.2489 - accuracy: 0.9067 - val_loss: 0.3021 - val_accuracy: 0.9133
+    8/7 [================================] - 12s 2s/step
+    The list of classes:  ['pumpkin', 'tomato', 'watermelon']
+    Number of errors = 13/150
+
+    vgg_transfer_finetune_model.h5
+    Epoch 00020: val_accuracy did not improve from 0.96667
+    30/30 [==============================] - 78s 3s/step - loss: 0.0962 - accuracy: 0.9817 - val_loss: 1.1951 - val_accuracy: 0.9267
+    8/7 [================================] - 11s 1s/step
+    The list of classes:  ['pumpkin', 'tomato', 'watermelon']
+    Number of errors = 11/150
+    
+    """
+    model_name = 'vgg_transfer_finetune_model.h5'  #'vgg_fine_tune.h5'  #'vgg_transfer_model.h5'
+
     # each folder contains three subfolders in accordance with the number of classes
     train_dir = './clean-dataset/train'
     validation_dir = './clean-dataset/validation'
@@ -123,7 +146,15 @@ if __name__ == '__main__':
     nVal = 150
 
     # load the normalized images
-    datagen = ImageDataGenerator(rescale=1. / 255)
+    train_datagen = ImageDataGenerator(
+        rescale=1. / 255,
+        rotation_range=20,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest')
+
+    test_datagen = ImageDataGenerator(rescale=1. / 255)
 
     # define the batch size
     batch_size = 20
@@ -133,7 +164,7 @@ if __name__ == '__main__':
     train_labels = np.zeros(shape=(nTrain, 3))
 
     # generate batches of train images and labels
-    train_generator = datagen.flow_from_directory(
+    train_generator = train_datagen.flow_from_directory(
         train_dir,
         target_size=(224, 224),
         batch_size=batch_size,
@@ -141,20 +172,23 @@ if __name__ == '__main__':
         shuffle=True)
 
     # generate batches of validation images and labels
-    validation_generator = datagen.flow_from_directory(
+    validation_generator = test_datagen.flow_from_directory(
         validation_dir,
         target_size=(224, 224),
         batch_size=batch_size,
         class_mode='categorical',
         shuffle=False)
 
-    if not Path("./vgg_transfer_model.h5").exists():
-        model = create_model()
+    if not Path(f"./{model_name}").exists():
+        model = create_model(num_trainable_layers=4)
 
         # configure the model for training
         model.compile(optimizer=optimizers.RMSprop(lr=2e-4),
                       loss='categorical_crossentropy',
-                      metrics=['acc'])
+                      metrics=['accuracy'])
+
+        checkpoint = ModelCheckpoint(model_name, monitor='val_accuracy', verbose=1, save_best_only=True, mode='max')
+        callbacks_list = [checkpoint]
 
         # use the train and validation feature vectors
         history = model.fit(train_generator,
@@ -162,15 +196,16 @@ if __name__ == '__main__':
                             epochs=20,
                             validation_data=validation_generator,
                             validation_steps=validation_generator.samples / validation_generator.batch_size,
-                            verbose=1
+                            verbose=1,
+                            callbacks=callbacks_list
                             )
         # Run the function to illustrate accuracy and loss
         visualize_results(history)
 
         # Save the model
-        model.save('vgg_transfer_model.h5')
+        model.save(model_name)
     else:
-        model = load_model('vgg_transfer_model.h5')
+        model = load_model(model_name)
 
 
     # Get the predictions from the model using the generator
