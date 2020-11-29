@@ -202,10 +202,12 @@ if __name__ == '__main__':
         # Run the function to illustrate accuracy and loss
         visualize_results(history)
 
-        # Save the model
-        model.save(model_name)
-    else:
-        model = load_model(model_name)
+        # # Save the model
+        # we do not have to save it, because the checkpoint is saving the best model
+        # model.save(model_name)
+
+    # read the best model and use the best model
+    model = load_model(model_name)
 
 
     # Get the predictions from the model using the generator
