@@ -10,6 +10,7 @@ Please see the following [blog post](https://www.learnopencv.com/keras-tutorial-
 -----
 This contains the code for **Keras Tutorial : Fine-tuning using pre-trained models**. For more information - visit [**Keras Tutorial : Fine-tuning using pre-trained models**](https://www.learnopencv.com/keras-tutorial-fine-tuning-using-pre-trained-models/)
 
+[GitRepo](https://github.com/spmallick/learnopencv/blob/master/Keras-Transfer-Learning/)
 
 -----
 # AI Courses by OpenCV

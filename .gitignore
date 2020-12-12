@@ -273,3 +273,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+/training-features.npy
+/training-labels.npy
+/val-features.npy
+/val-labels.npy
